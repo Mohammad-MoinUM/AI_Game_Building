@@ -1,54 +1,42 @@
 # ============================================================
 # settings.py
 # ------------------------------------------------------------
-# This file stores all constant values used in the game.
-# Keeping these values in one file makes the project cleaner.
-# If you want to change colors, board size, window size, etc.,
-# you can do it here without touching the main logic.
+# Global settings for Strategy Battle Arena
 # ============================================================
 
-# ----------------------------
-# Window information
-# ----------------------------
 TITLE = "Strategy Battle Arena"
 
-# Total window size
-WINDOW_WIDTH = 1220
-WINDOW_HEIGHT = 820
-
-# Frames per second
+WINDOW_WIDTH = 1280
+WINDOW_HEIGHT = 860
 FPS = 60
 
 # ----------------------------
-# Board information
+# Board settings
 # ----------------------------
-GRID_SIZE = 7          # 7x7 board
-CELL_SIZE = 88         # width and height of one square cell
+GRID_SIZE = 7
+CELL_SIZE = 88
 
-# Top-left corner of the board on the screen
 BOARD_X = 55
-BOARD_Y = 100
+BOARD_Y = 110
 
-# Full board width and height
 BOARD_WIDTH = GRID_SIZE * CELL_SIZE
 BOARD_HEIGHT = GRID_SIZE * CELL_SIZE
 
 # ----------------------------
-# Right-side panel information
+# Side panel settings
 # ----------------------------
 SIDE_PANEL_X = BOARD_X + BOARD_WIDTH + 40
-SIDE_PANEL_Y = 100
-SIDE_PANEL_WIDTH = 470
-SIDE_PANEL_HEIGHT = 620
+SIDE_PANEL_Y = 110
+SIDE_PANEL_WIDTH = 520
+SIDE_PANEL_HEIGHT = 650
 
 # ----------------------------
-# Game values (used later)
+# Game values
 # ----------------------------
 MAX_HP = 100
 MAX_ENERGY = 100
 MAX_TURNS = 40
 
-# Action costs and effects
 ATTACK_COST = 10
 DEFEND_COST = 5
 HEAL_COST = 12
@@ -59,84 +47,99 @@ ENERGY_BONUS = 10
 TRAP_DAMAGE = 8
 
 # ----------------------------
-# Board setup
-# IMPORTANT:
-# These are game coordinates, not screen coordinates.
-#
-# In game logic:
-# (0,0) means bottom-left of the board
-# (6,6) means top-right of the board
+# Starting positions
 # ----------------------------
 PLAYER_A_START = (0, 0)
 PLAYER_B_START = (0, 6)
 
-# Main objective cell
+# ----------------------------
+# Objective
+# ----------------------------
 QUEEN_POS = (6, 3)
 
+# ----------------------------
 # Special cells
-ENERGY_CELLS = [(2, 4), (4, 3)]
-TRAP_CELLS = [(1, 3), (3, 2)]
-SHIELD_CELLS = [(2, 2)]
+# ----------------------------
+ENERGY_CELLS = [
+    (2, 5),
+    (3, 4),
+    (4, 5),
+    (5, 2),
+    (4, 1)
+]
+
+TRAP_CELLS = [
+    (2, 3),
+    (4, 3),
+    (5, 4),
+    (3, 1)
+]
+
+SHIELD_CELLS = [
+    (2, 2),
+    (3, 3),
+    (5, 5)
+]
 
 # ----------------------------
-# Colors
+# Main colors
 # ----------------------------
+BG_COLOR = (8, 14, 26)
 
-# Background of whole window
-BG_COLOR = (17, 22, 30)
+PANEL_BG = (20, 28, 42)
+PANEL_BORDER = (78, 102, 140)
 
-# Side panel colors
-PANEL_BG = (29, 36, 47)
-PANEL_BORDER = (70, 82, 100)
+BOARD_FRAME = (16, 24, 40)
+BOARD_LINE = (72, 92, 122)
 
-# Board frame and grid line colors
-BOARD_FRAME = (35, 42, 55)
-BOARD_LINE = (70, 78, 95)
+CELL_LIGHT = (88, 110, 155)
+CELL_DARK = (66, 84, 128)
 
-# Checkerboard cell colors
-CELL_LIGHT = (232, 235, 242)
-CELL_DARK = (214, 220, 229)
-
-# Text colors
 TEXT_MAIN = (245, 247, 250)
-TEXT_SOFT = (182, 189, 202)
-TEXT_GOLD = (255, 214, 102)
+TEXT_SOFT = (196, 205, 220)
+TEXT_GOLD = (255, 220, 120)
+TEXT_MUTED = (150, 165, 190)
 
-# Player A colors
-A_COLOR = (42, 122, 220)
-A_BORDER = (20, 78, 158)
-
-# Player B colors
-B_COLOR = (219, 58, 70)
-B_BORDER = (150, 33, 45)
-
-# Energy cell colors
-ENERGY_COLOR = (84, 186, 102)
-ENERGY_BORDER = (49, 132, 67)
-
-# Trap cell colors
-TRAP_COLOR = (225, 74, 74)
-TRAP_BORDER = (168, 40, 40)
-
-# Shield cell colors
-SHIELD_COLOR = (137, 103, 219)
-SHIELD_BORDER = (95, 67, 175)
-
-# Queen cell colors
-QUEEN_COLOR = (50, 64, 84)
-QUEEN_BORDER = (255, 205, 95)
-
-# HP bar colors
-HP_BG = (70, 35, 45)
-HP_FILL = (222, 74, 96)
-
-# Energy bar colors
-ENERGY_BG = (35, 54, 72)
-ENERGY_FILL = (78, 164, 240)
-
-# Misc UI colors
-TURN_BOX = (38, 46, 60)
-LOG_BOX = (23, 29, 38)
-HIGHLIGHT = (255, 223, 120)
 WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+
+# ----------------------------
+# Player colors
+# ----------------------------
+A_COLOR = (50, 145, 255)
+A_BORDER = (20, 92, 190)
+
+B_COLOR = (214, 62, 120)
+B_BORDER = (145, 28, 82)
+
+# ----------------------------
+# Special cell colors
+# ----------------------------
+ENERGY_COLOR = (65, 215, 125)
+ENERGY_BORDER = (28, 150, 80)
+
+TRAP_COLOR = (245, 120, 82)
+TRAP_BORDER = (185, 72, 38)
+
+SHIELD_COLOR = (170, 118, 255)
+SHIELD_BORDER = (112, 70, 200)
+
+QUEEN_COLOR = (32, 46, 76)
+QUEEN_BORDER = (255, 214, 90)
+
+# ----------------------------
+# Bars
+# ----------------------------
+HP_BG = (72, 28, 38)
+HP_FILL = (240, 82, 104)
+
+ENERGY_BG = (28, 56, 82)
+ENERGY_FILL = (88, 182, 255)
+
+# ----------------------------
+# UI boxes
+# ----------------------------
+TURN_BOX = (28, 38, 58)
+HIGHLIGHT = (255, 214, 102)
+LOG_BOX = (14, 21, 34)
+LEGEND_BOX = (18, 25, 38)
+BADGE_BG = (36, 52, 78)

@@ -90,13 +90,13 @@ def main():
 
         # Small helper text at bottom
         draw_text(
-            screen,
-            "Part 1 loaded: Board and UI foundation complete",
-            fonts["small"],
-            TEXT_MAIN,
-            55,
-            760
-        )
+    screen,
+    "Visual layer ready • Next steps: gameplay rules, actions, Minimax, MCTS",
+    fonts["small"],
+    TEXT_MAIN,
+    55,
+    800
+)
 
         # Update screen
         pygame.display.flip()
