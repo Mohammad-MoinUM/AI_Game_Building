@@ -311,98 +311,95 @@ def end_turn(state):
 
     state.action_log.append(f"Turn passed from {old_turn} to {state.current_turn}.")
 
+# ============================================================
+# MCTS algorithm
+# ============================================================
 
-# ------------------------------------------------------------
-# Demo AI (temporary for Part 2)
-# ------------------------------------------------------------
-def best_move_toward(start, target, blocked_cell=None):
-    """
-    Choose a neighboring move that reduces Manhattan distance
-    to a target. Used by the temporary demo AI.
-    """
-    candidates = get_neighbors(start)
+def mcts(root_state, iterations=120):
 
-    if blocked_cell is not None:
-        candidates = [c for c in candidates if c != blocked_cell]
+    root = MCTSNode(clone_state(root_state))
 
-    if not candidates:
-        return None
+    for _ in range(iterations):
 
-    # sort by distance to target
-    candidates.sort(key=lambda p: manhattan(p, target))
-    return candidates[0]
+        node = root
+        state = clone_state(root_state)
+
+        # Selection
+        while node.is_fully_expanded() and node.children:
+            node = node.best_child()
+            step_simulation(state, node.action)
+
+        # Expansion
+        if node.untried_actions:
+
+            action = node.untried_actions.pop()
+
+            step_simulation(state, action)
+
+            child = MCTSNode(state, node, action)
+            node.children.append(child)
+
+            node = child
+
+        # Simulation
+        rollout_state = clone_state(state)
+
+        depth = 0
+        while not rollout_state.game_over and depth < 20:
+
+            actions = get_legal_actions(rollout_state)
+
+            if not actions:
+                break
+
+            action = random.choice(actions)
+            step_simulation(rollout_state, action)
+
+            depth += 1
+
+        # Backpropagation
+        result = rollout_state.winner
+
+        while node is not None:
+
+            node.visits += 1
+
+            if result == "B":
+                node.wins += 1
+
+            node = node.parent
+
+    best_child = max(root.children, key=lambda c: c.visits)
+
+    return best_child.action
 
 
-def nearest_cell(start, cells):
-    """
-    Return the closest cell from a list of cells.
-    """
-    if not cells:
-        return None
-    return min(cells, key=lambda c: manhattan(start, c))
+# ============================================================
+# AI controller
+# ============================================================
 
+def play_one_ai_turn(state):
 
-def choose_demo_ai_action(state):
-    """
-    Temporary AI policy for Part 2.
+    if state.game_over:
+        return
 
-    Priority:
-    1. Attack if enemy is adjacent and attack is legal
-    2. Heal if HP is low
-    3. Move toward energy if energy is low
-    4. Move toward queen if not close enough
-    5. Defend if nothing else is strong
-    6. Otherwise move randomly among legal moves
-    """
-    player = state.get_current_player()
-    enemy = state.get_other_player()
-    actions = get_legal_actions(state)
+    if state.current_turn == "A":
 
-    # Easy lookup flags
-    attack_available = ("ATTACK", None) in actions
-    heal_available = ("HEAL", None) in actions
-    defend_available = ("DEFEND", None) in actions
+        action = choose_minimax_action_for_a(state)
 
-    # 1. Attack if possible
-    if attack_available:
-        return ("ATTACK", None)
+    else:
 
-    # 2. Heal if low HP
-    if player.hp <= 45 and heal_available:
-        return ("HEAL", None)
+        action = mcts(state, iterations=120)
 
-    # 3. Low energy -> move toward nearest energy cell
-    if player.energy <= 25:
-        target_e = nearest_cell(player.pos, ENERGY_CELLS)
-        if target_e is not None:
-            move = best_move_toward(player.pos, target_e, blocked_cell=enemy.pos)
-            if move is not None and ("MOVE", move) in actions:
-                return ("MOVE", move)
+    if action is None:
+        end_turn(state)
+        return
 
-    # 4. Move toward queen area
-    # We want to get adjacent to queen, not stand on queen necessarily.
-    queen_targets = get_neighbors(QUEEN_POS)
-    queen_target = nearest_cell(player.pos, queen_targets)
-    if queen_target is not None:
-        move = best_move_toward(player.pos, queen_target, blocked_cell=enemy.pos)
-        if move is not None and ("MOVE", move) in actions:
-            return ("MOVE", move)
+    apply_action(state, action)
+    check_game_over(state)
 
-    # 5. Defend if available
-    if defend_available and player.energy >= 20:
-        return ("DEFEND", None)
-
-    # 6. Otherwise choose a move if available
-    move_actions = [a for a in actions if a[0] == "MOVE"]
-    if move_actions:
-        return random.choice(move_actions)
-
-    # final fallback
-    if actions:
-        return random.choice(actions)
-
-    return None
-
+    if not state.game_over:
+        end_turn(state)
 
 # ------------------------------------------------------------
 # Full one-step AI turn
