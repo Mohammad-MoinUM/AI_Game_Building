@@ -401,26 +401,3 @@ def play_one_ai_turn(state):
 
     if not state.game_over:
         end_turn(state)
-
-        
-# ------------------------------------------------------------
-# Full one-step AI turn
-# ------------------------------------------------------------
-def play_one_ai_turn(state):
-    """
-    Let the current temporary AI choose one action and apply it.
-    """
-    if state.game_over:
-        return
-
-    action = choose_demo_ai_action(state)
-    if action is None:
-        state.action_log.append(f"{state.current_turn} had no legal action.")
-        end_turn(state)
-        return
-
-    apply_action(state, action)
-    check_game_over(state)
-
-    if not state.game_over:
-        end_turn(state)
