@@ -312,7 +312,97 @@ def end_turn(state):
     state.action_log.append(f"Turn passed from {old_turn} to {state.current_turn}.")
 
 
+# ============================================================
+# MCTS algorithm
+# ============================================================
 
+def mcts(root_state, iterations=120):
+
+    root = MCTSNode(clone_state(root_state))
+
+    for _ in range(iterations):
+
+        node = root
+        state = clone_state(root_state)
+
+        # Selection
+        while node.is_fully_expanded() and node.children:
+            node = node.best_child()
+            step_simulation(state, node.action)
+
+        # Expansion
+        if node.untried_actions:
+
+            action = node.untried_actions.pop()
+
+            step_simulation(state, action)
+
+            child = MCTSNode(state, node, action)
+            node.children.append(child)
+
+            node = child
+
+        # Simulation
+        rollout_state = clone_state(state)
+
+        depth = 0
+        while not rollout_state.game_over and depth < 20:
+
+            actions = get_legal_actions(rollout_state)
+
+            if not actions:
+                break
+
+            action = random.choice(actions)
+            step_simulation(rollout_state, action)
+
+            depth += 1
+
+        # Backpropagation
+        result = rollout_state.winner
+
+        while node is not None:
+
+            node.visits += 1
+
+            if result == "B":
+                node.wins += 1
+
+            node = node.parent
+
+    best_child = max(root.children, key=lambda c: c.visits)
+
+    return best_child.action
+
+
+# ============================================================
+# AI controller
+# ============================================================
+
+def play_one_ai_turn(state):
+
+    if state.game_over:
+        return
+
+    if state.current_turn == "A":
+
+        action = choose_minimax_action_for_a(state)
+
+    else:
+
+        action = mcts(state, iterations=120)
+
+    if action is None:
+        end_turn(state)
+        return
+
+    apply_action(state, action)
+    check_game_over(state)
+
+    if not state.game_over:
+        end_turn(state)
+
+        
 # ------------------------------------------------------------
 # Full one-step AI turn
 # ------------------------------------------------------------
