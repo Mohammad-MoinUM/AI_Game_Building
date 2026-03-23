@@ -1,16 +1,11 @@
 # ============================================================
 # game_logic.py
 # ------------------------------------------------------------
-# This file contains the actual game rules.
-#
-# Part 2 includes:
-# - legal movement
-# - one action per turn
-# - attack / defend / heal
-# - special cell effects
-# - queen-control update
-# - demo AI turn selection
-# - win/tie logic
+# Part 4:
+# - full game rules
+# - Minimax (AI A)
+# - Monte Carlo Tree Search (AI B)
+# - winner reason support
 # ============================================================
 
 import copy
@@ -36,29 +31,20 @@ from settings import (
 )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # Basic helpers
-# ------------------------------------------------------------
+# ============================================================
+
 def in_bounds(pos):
-    """
-    Check whether a board position is inside the 7x7 grid.
-    """
     x, y = pos
     return 0 <= x < GRID_SIZE and 0 <= y < GRID_SIZE
 
 
 def manhattan(a, b):
-    """
-    Manhattan distance between two cells.
-    This is useful for grid movement and adjacency checks.
-    """
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 
 def get_neighbors(pos):
-    """
-    Return the 4-directional neighboring cells.
-    """
     x, y = pos
     candidates = [
         (x + 1, y),
@@ -69,101 +55,66 @@ def get_neighbors(pos):
     return [p for p in candidates if in_bounds(p)]
 
 
-# ------------------------------------------------------------
+# ============================================================
 # Action generation
-# ------------------------------------------------------------
-def get_legal_actions(state):
-    """
-    Generate all legal actions for the current player.
+# ============================================================
 
-    Action format:
-        ("MOVE", target_pos)
-        ("ATTACK", None)
-        ("DEFEND", None)
-        ("HEAL", None)
-    """
+def get_legal_actions(state):
     player = state.get_current_player()
     enemy = state.get_other_player()
 
     actions = []
 
-    # ------------------------
-    # MOVE actions
-    # ------------------------
     for nxt in get_neighbors(player.pos):
-        # cannot move onto the enemy cell
         if nxt != enemy.pos:
             actions.append(("MOVE", nxt))
 
-    # ------------------------
-    # ATTACK action
-    # ------------------------
-    # Attack only if adjacent and enough energy
     if manhattan(player.pos, enemy.pos) == 1 and player.energy >= ATTACK_COST:
         actions.append(("ATTACK", None))
 
-    # ------------------------
-    # DEFEND action
-    # ------------------------
     if player.energy >= DEFEND_COST:
         actions.append(("DEFEND", None))
 
-    # ------------------------
-    # HEAL action
-    # ------------------------
     if player.energy >= HEAL_COST and player.hp < MAX_HP:
         actions.append(("HEAL", None))
 
     return actions
 
 
-# ------------------------------------------------------------
-# Damage and cell effects
-# ------------------------------------------------------------
+# ============================================================
+# Damage + cell effects
+# ============================================================
+
 def compute_attack_damage(enemy):
-    """
-    Compute final attack damage after defend/shield modifiers.
-    """
     damage = ATTACK_DAMAGE
 
-    # Defend reduces incoming damage by 50%
     if enemy.defend_active:
         damage *= 0.5
 
-    # Shield reduces incoming damage by 25%
     if enemy.shield_active:
         damage *= 0.75
 
     return max(1, int(round(damage)))
 
 
-def apply_cell_effect(player, state):
-    """
-    Apply the effect of the cell the player ends on.
-    """
-    # Energy cell
+def apply_cell_effect(player):
     if player.pos in ENERGY_CELLS:
-        old_energy = player.energy
         player.energy = min(MAX_ENERGY, player.energy + ENERGY_BONUS)
-        gained = player.energy - old_energy
-        if gained > 0:
-            state.action_log.append(f"{player.name} gained {gained} energy from E cell.")
 
-    # Trap cell
     if player.pos in TRAP_CELLS:
         player.hp = max(0, player.hp - TRAP_DAMAGE)
-        state.action_log.append(f"{player.name} took {TRAP_DAMAGE} trap damage.")
 
-    # Shield cell
     if player.pos in SHIELD_CELLS:
         player.shield_active = True
-        state.action_log.append(f"{player.name} activated shield.")
 
+
+# ============================================================
+# Queen control
+# ============================================================
 
 def update_queen_control(state):
     """
-    Queen control rule:
-    A player gains 1 queen-control point if they are adjacent
+    A player gets 1 queen-control point if they are adjacent
     to the queen and the opponent is not adjacent.
     """
     a_adj = manhattan(state.player_a.pos, QUEEN_POS) == 1
@@ -171,113 +122,89 @@ def update_queen_control(state):
 
     if a_adj and not b_adj:
         state.player_a.queen_control += 1
-        state.action_log.append("A gained queen control.")
     elif b_adj and not a_adj:
         state.player_b.queen_control += 1
-        state.action_log.append("B gained queen control.")
 
 
-# ------------------------------------------------------------
-# Turn action execution
-# ------------------------------------------------------------
+# ============================================================
+# Apply action
+# ============================================================
+
 def apply_action(state, action):
-    """
-    Apply exactly one action to the current state.
-
-    This function directly modifies the state.
-    """
     player = state.get_current_player()
     enemy = state.get_other_player()
 
-    # Defend only lasts until this player's next action.
-    # So when this player starts a turn, we reset their old defend.
     player.defend_active = False
 
     action_type, payload = action
 
     if action_type == "MOVE":
         player.pos = payload
-        state.action_log.append(f"{player.name} moved to {player.pos}.")
-        apply_cell_effect(player, state)
+        apply_cell_effect(player)
 
     elif action_type == "ATTACK":
         player.energy -= ATTACK_COST
-
         damage = compute_attack_damage(enemy)
         enemy.hp = max(0, enemy.hp - damage)
 
-        state.action_log.append(f"{player.name} attacked {enemy.name} for {damage} damage.")
-
-        # After getting hit, defend and shield are consumed
         enemy.defend_active = False
         enemy.shield_active = False
 
     elif action_type == "DEFEND":
         player.energy -= DEFEND_COST
         player.defend_active = True
-        state.action_log.append(f"{player.name} used defend.")
 
     elif action_type == "HEAL":
         player.energy -= HEAL_COST
-        old_hp = player.hp
         player.hp = min(MAX_HP, player.hp + HEAL_AMOUNT)
-        healed = player.hp - old_hp
-        state.action_log.append(f"{player.name} healed for {healed} HP.")
-
-    # Keep action log short
-    if len(state.action_log) > 12:
-        state.action_log = state.action_log[-12:]
 
 
-# ------------------------------------------------------------
-# Winner / tie-break logic
-# ------------------------------------------------------------
+# ============================================================
+# Winner decision
+# ============================================================
+
 def decide_winner_by_tiebreak(state):
-    """
-    If max turns are reached, decide winner by:
-    1. queen control
-    2. HP
-    3. Energy
-    else draw
-    """
     a = state.player_a
     b = state.player_b
 
-    if a.queen_control != b.queen_control:
-        return "A" if a.queen_control > b.queen_control else "B", "Won by queen control"
+    if a.queen_control > b.queen_control:
+        return "A", "Higher Queen Control"
+    elif b.queen_control > a.queen_control:
+        return "B", "Higher Queen Control"
 
-    if a.hp != b.hp:
-        return "A" if a.hp > b.hp else "B", "Won by higher HP"
+    if a.hp > b.hp:
+        return "A", "Higher HP"
+    elif b.hp > a.hp:
+        return "B", "Higher HP"
 
-    if a.energy != b.energy:
-        return "A" if a.energy > b.energy else "B", "Won by higher energy"
+    if a.energy > b.energy:
+        return "A", "Higher Energy"
+    elif b.energy > a.energy:
+        return "B", "Higher Energy"
 
-    return "Draw", "Perfect draw after tie-break"
+    return "Draw", "Perfect Draw"
 
 
 def check_game_over(state):
-    """
-    Check whether the game is over.
-    """
     a = state.player_a
     b = state.player_b
 
     if a.hp <= 0 and b.hp <= 0:
         state.game_over = True
         state.winner = "Draw"
-        state.winner_reason = "Both players were defeated"
+        state.winner_reason = "Both Players Defeated"
         return
 
     if a.hp <= 0:
         state.game_over = True
         state.winner = "B"
-        state.winner_reason = "A was defeated"
+        state.winner_reason = "AI A Defeated"
         return
 
     if b.hp <= 0:
         state.game_over = True
         state.winner = "A"
-        state.winner_reason = "B was defeated"
+        state.winner_reason = "AI B Defeated"
         return
 
     if state.turn_count > MAX_TURNS:
@@ -287,136 +214,262 @@ def check_game_over(state):
 
 
 def end_turn(state):
-    """
-    Finish the current turn:
-    - update queen control
-    - check game over
-    - switch active player
-    - increment turn count after B -> A transition
-    """
     update_queen_control(state)
     check_game_over(state)
 
     if state.game_over:
         return
 
-    old_turn = state.current_turn
-
-    # switch turn
     if state.current_turn == "A":
         state.current_turn = "B"
     else:
         state.current_turn = "A"
         state.turn_count += 1
 
-    state.action_log.append(f"Turn passed from {old_turn} to {state.current_turn}.")
+
+# ============================================================
+# Simulation helpers
+# ============================================================
+
+def clone_state(state):
+    return copy.deepcopy(state)
 
 
-# ------------------------------------------------------------
-# Demo AI (temporary for Part 2)
-# ------------------------------------------------------------
-def best_move_toward(start, target, blocked_cell=None):
-    """
-    Choose a neighboring move that reduces Manhattan distance
-    to a target. Used by the temporary demo AI.
-    """
-    candidates = get_neighbors(start)
+def step_simulation(sim_state, action):
+    apply_action(sim_state, action)
 
-    if blocked_cell is not None:
-        candidates = [c for c in candidates if c != blocked_cell]
+    # queen control must also update in simulation
+    update_queen_control(sim_state)
+    check_game_over(sim_state)
 
-    if not candidates:
-        return None
+    if not sim_state.game_over:
+        if sim_state.current_turn == "A":
+            sim_state.current_turn = "B"
+        else:
+            sim_state.current_turn = "A"
+            sim_state.turn_count += 1
 
-    # sort by distance to target
-    candidates.sort(key=lambda p: manhattan(p, target))
-    return candidates[0]
+    return sim_state
 
 
-def nearest_cell(start, cells):
-    """
-    Return the closest cell from a list of cells.
-    """
-    if not cells:
-        return None
-    return min(cells, key=lambda c: manhattan(start, c))
+# ============================================================
+# Evaluation for Minimax
+# ============================================================
+
+def evaluate_state_for_a(state):
+    a = state.player_a
+    b = state.player_b
+
+    if state.game_over:
+        if state.winner == "A":
+            return 100000
+        if state.winner == "B":
+            return -100000
+        return 0
+
+    score = 0
+    score += (a.hp - b.hp) * 10
+    score += (a.energy - b.energy) * 2
+    score += (a.queen_control - b.queen_control) * 15
+    score += (manhattan(b.pos, QUEEN_POS) - manhattan(a.pos, QUEEN_POS)) * 2
+
+    return score
 
 
-def choose_demo_ai_action(state):
-    """
-    Temporary AI policy for Part 2.
+# ============================================================
+# Minimax (AI A)
+# ============================================================
 
-    Priority:
-    1. Attack if enemy is adjacent and attack is legal
-    2. Heal if HP is low
-    3. Move toward energy if energy is low
-    4. Move toward queen if not close enough
-    5. Defend if nothing else is strong
-    6. Otherwise move randomly among legal moves
-    """
-    player = state.get_current_player()
-    enemy = state.get_other_player()
+def minimax(state, depth, alpha, beta, maximizing):
+    if depth == 0 or state.game_over:
+        return evaluate_state_for_a(state), None
+
     actions = get_legal_actions(state)
 
-    # Easy lookup flags
-    attack_available = ("ATTACK", None) in actions
-    heal_available = ("HEAL", None) in actions
-    defend_available = ("DEFEND", None) in actions
+    if maximizing:
+        best_score = -math.inf
+        best_action = None
 
-    # 1. Attack if possible
-    if attack_available:
-        return ("ATTACK", None)
+        for action in actions:
+            child = clone_state(state)
+            step_simulation(child, action)
 
-    # 2. Heal if low HP
-    if player.hp <= 45 and heal_available:
-        return ("HEAL", None)
+            score, _ = minimax(child, depth - 1, alpha, beta, False)
 
-    # 3. Low energy -> move toward nearest energy cell
-    if player.energy <= 25:
-        target_e = nearest_cell(player.pos, ENERGY_CELLS)
-        if target_e is not None:
-            move = best_move_toward(player.pos, target_e, blocked_cell=enemy.pos)
-            if move is not None and ("MOVE", move) in actions:
-                return ("MOVE", move)
+            if score > best_score:
+                best_score = score
+                best_action = action
 
-    # 4. Move toward queen area
-    # We want to get adjacent to queen, not stand on queen necessarily.
-    queen_targets = get_neighbors(QUEEN_POS)
-    queen_target = nearest_cell(player.pos, queen_targets)
-    if queen_target is not None:
-        move = best_move_toward(player.pos, queen_target, blocked_cell=enemy.pos)
-        if move is not None and ("MOVE", move) in actions:
-            return ("MOVE", move)
+            alpha = max(alpha, best_score)
+            if beta <= alpha:
+                break
 
-    # 5. Defend if available
-    if defend_available and player.energy >= 20:
-        return ("DEFEND", None)
+        return best_score, best_action
 
-    # 6. Otherwise choose a move if available
-    move_actions = [a for a in actions if a[0] == "MOVE"]
-    if move_actions:
-        return random.choice(move_actions)
+    else:
+        best_score = math.inf
+        best_action = None
 
-    # final fallback
-    if actions:
+        for action in actions:
+            child = clone_state(state)
+            step_simulation(child, action)
+
+            score, _ = minimax(child, depth - 1, alpha, beta, True)
+
+            if score < best_score:
+                best_score = score
+                best_action = action
+
+            beta = min(beta, best_score)
+            if beta <= alpha:
+                break
+
+        return best_score, best_action
+
+
+def choose_minimax_action_for_a(state):
+    _, action = minimax(state, 3, -math.inf, math.inf, True)
+
+    if action is None:
+        actions = get_legal_actions(state)
         return random.choice(actions)
 
-    return None
+    return action
 
 
-# ------------------------------------------------------------
-# Full one-step AI turn
-# ------------------------------------------------------------
+# ============================================================
+# MCTS Node
+# ============================================================
+
+class MCTSNode:
+    def __init__(self, state, parent=None, action=None):
+        self.state = state
+        self.parent = parent
+        self.action = action
+        self.children = []
+        self.visits = 0
+        self.wins = 0
+        self.untried_actions = get_legal_actions(state)
+
+    def is_fully_expanded(self):
+        return len(self.untried_actions) == 0
+
+    def best_child(self, c=1.4):
+        best = None
+        best_score = -math.inf
+
+        for child in self.children:
+            exploitation = child.wins / child.visits
+            exploration = c * math.sqrt(math.log(self.visits) / child.visits)
+            score = exploitation + exploration
+
+            if score > best_score:
+                best_score = score
+                best = child
+
+        return best
+
+
+def rollout_reward_for_b(state):
+    """
+    Return rollout reward from AI B perspective.
+    Uses terminal winner when available, otherwise a heuristic fallback
+    so MCTS can still learn from non-terminal rollouts.
+    """
+    if state.game_over:
+        if state.winner == "B":
+            return 1.0
+        if state.winner == "A":
+            return 0.0
+        return 0.5
+
+    a = state.player_a
+    b = state.player_b
+
+    # Simple bounded heuristic mapped to [0, 1]
+    score = 0.0
+    score += (b.hp - a.hp) * 0.03
+    score += (b.energy - a.energy) * 0.01
+    score += (b.queen_control - a.queen_control) * 0.08
+    score += (manhattan(a.pos, QUEEN_POS) - manhattan(b.pos, QUEEN_POS)) * 0.02
+
+    return max(0.0, min(1.0, 0.5 + score))
+
+
+# ============================================================
+# MCTS (AI B)
+# ============================================================
+
+def mcts(root_state, iterations=120):
+    root = MCTSNode(clone_state(root_state))
+
+    if not root.untried_actions:
+        return None
+
+    for _ in range(iterations):
+        node = root
+        state = clone_state(root_state)
+
+        # Selection
+        while node.is_fully_expanded() and node.children:
+            node = node.best_child()
+            step_simulation(state, node.action)
+
+        # Expansion
+        if node.untried_actions:
+            action = node.untried_actions.pop()
+            step_simulation(state, action)
+
+            child = MCTSNode(state, node, action)
+            node.children.append(child)
+            node = child
+
+        # Simulation
+        rollout_state = clone_state(state)
+
+        depth = 0
+        while not rollout_state.game_over and depth < 20:
+            actions = get_legal_actions(rollout_state)
+            if not actions:
+                break
+
+            action = random.choice(actions)
+            step_simulation(rollout_state, action)
+            depth += 1
+
+        # Backpropagation
+        reward = rollout_reward_for_b(rollout_state)
+
+        while node is not None:
+            node.visits += 1
+
+            node.wins += reward
+
+            node = node.parent
+
+    if not root.children:
+        return random.choice(root.untried_actions)
+
+    max_visits = max(child.visits for child in root.children)
+    candidates = [child for child in root.children if child.visits == max_visits]
+    best_child = max(candidates, key=lambda c: c.wins / c.visits)
+    return best_child.action
+
+
+# ============================================================
+# AI controller
+# ============================================================
+
 def play_one_ai_turn(state):
-    """
-    Let the current temporary AI choose one action and apply it.
-    """
     if state.game_over:
         return
 
-    action = choose_demo_ai_action(state)
+    if state.current_turn == "A":
+        action = choose_minimax_action_for_a(state)
+    else:
+        action = mcts(state, iterations=120)
+
     if action is None:
-        state.action_log.append(f"{state.current_turn} had no legal action.")
         end_turn(state)
         return
 

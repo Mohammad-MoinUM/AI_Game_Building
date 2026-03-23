@@ -11,7 +11,7 @@
 # ============================================================
 
 import math
-import pygame
+import pygame  # type: ignore[reportMissingImports]
 from settings import *
 
 
