@@ -1,16 +1,8 @@
 # ============================================================
 # main.py
 # ------------------------------------------------------------
-# This is the entry point of the game.
-# When you run "python main.py", this file starts everything.
-#
-# In Part 1, this file does these jobs:
-# 1. initialize pygame
-# 2. create the screen
-# 3. create fonts
-# 4. create game state
-# 5. run the main loop
-# 6. call drawing functions every frame
+# Entry point of Strategy Battle Arena
+# Shows result clearly at the bottom when game ends
 # ============================================================
 
 import pygame
@@ -21,91 +13,86 @@ from settings import (
     WINDOW_HEIGHT,
     FPS,
     BG_COLOR,
-    TEXT_MAIN
+    TEXT_MAIN,
+    TEXT_GOLD,
 )
 from game_state import GameState
 from board import draw_everything, draw_text
+from game_logic import play_one_ai_turn
 
 
 def load_fonts():
-    """
-    Create and return all fonts used in the game.
-
-    We keep fonts in one dictionary so that other files
-    can access them by name.
-    """
     fonts = {
-        "title": pygame.font.SysFont("arial", 32, bold=True),
-        "heading": pygame.font.SysFont("arial", 24, bold=True),
-        "body": pygame.font.SysFont("arial", 20),
-        "small": pygame.font.SysFont("arial", 16),
-        "marker": pygame.font.SysFont("arial", 34, bold=True),
+        "title": pygame.font.SysFont("segoe ui", 30, bold=True),
+        "heading": pygame.font.SysFont("segoe ui", 22, bold=True),
+        "body": pygame.font.SysFont("segoe ui", 18),
+        "small": pygame.font.SysFont("segoe ui", 14),
+        "marker": pygame.font.SysFont("arial", 30, bold=True),
     }
     return fonts
 
 
+def winner_label(winner):
+    if winner == "A":
+        return "AI A (Minimax)"
+    elif winner == "B":
+        return "AI B (MCTS)"
+    return "Draw"
+
+
 def main():
-    """
-    Main game function.
-    """
-    # Start pygame
     pygame.init()
 
-    # Create game window
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption(TITLE)
 
-    # Clock controls FPS
     clock = pygame.time.Clock()
-
-    # Fonts used in the game
     fonts = load_fonts()
-
-    # Create initial game state
     state = GameState()
 
-    # This variable keeps the loop running
+    AI_STEP_DELAY_MS = 850
+    last_ai_step_time = pygame.time.get_ticks()
+
     running = True
 
     while running:
-        # Keep loop at fixed FPS
         clock.tick(FPS)
 
-        # -----------------------------
-        # Handle events
-        # -----------------------------
         for event in pygame.event.get():
-            # If user clicks the close button, end the game
             if event.type == pygame.QUIT:
                 running = False
 
-        # -----------------------------
-        # Drawing
-        # -----------------------------
-        # Fill background
-        screen.fill(BG_COLOR)
+        now = pygame.time.get_ticks()
 
-        # Draw all visual game elements
+        if not state.game_over and now - last_ai_step_time >= AI_STEP_DELAY_MS:
+            play_one_ai_turn(state)
+            last_ai_step_time = now
+
+        screen.fill(BG_COLOR)
         draw_everything(screen, state, fonts)
 
-        # Small helper text at bottom
-        draw_text(
-    screen,
-    "Visual layer ready • Next steps: gameplay rules, actions, Minimax, MCTS",
-    fonts["small"],
-    TEXT_MAIN,
-    55,
-    800
-)
+        if state.game_over:
+            draw_text(
+                screen,
+                f"Winner: {winner_label(state.winner)}",
+                fonts["heading"],
+                TEXT_GOLD,
+                55,
+                804
+            )
+            draw_text(
+                screen,
+                f"Reason: {state.winner_reason}",
+                fonts["body"],
+                TEXT_MAIN,
+                55,
+                832
+            )
 
-        # Update screen
         pygame.display.flip()
 
-    # Close pygame safely
     pygame.quit()
 
 
-# This line means:
-# run main() only when this file is executed directly
 if __name__ == "__main__":
     main()
