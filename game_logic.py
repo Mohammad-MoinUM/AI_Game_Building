@@ -370,12 +370,41 @@ class MCTSNode:
         return best
 
 
+def rollout_reward_for_b(state):
+    """
+    Return rollout reward from AI B perspective.
+    Uses terminal winner when available, otherwise a heuristic fallback
+    so MCTS can still learn from non-terminal rollouts.
+    """
+    if state.game_over:
+        if state.winner == "B":
+            return 1.0
+        if state.winner == "A":
+            return 0.0
+        return 0.5
+
+    a = state.player_a
+    b = state.player_b
+
+    # Simple bounded heuristic mapped to [0, 1]
+    score = 0.0
+    score += (b.hp - a.hp) * 0.03
+    score += (b.energy - a.energy) * 0.01
+    score += (b.queen_control - a.queen_control) * 0.08
+    score += (manhattan(a.pos, QUEEN_POS) - manhattan(b.pos, QUEEN_POS)) * 0.02
+
+    return max(0.0, min(1.0, 0.5 + score))
+
+
 # ============================================================
 # MCTS (AI B)
 # ============================================================
 
 def mcts(root_state, iterations=120):
     root = MCTSNode(clone_state(root_state))
+
+    if not root.untried_actions:
+        return None
 
     for _ in range(iterations):
         node = root
@@ -409,17 +438,21 @@ def mcts(root_state, iterations=120):
             depth += 1
 
         # Backpropagation
-        result = rollout_state.winner
+        reward = rollout_reward_for_b(rollout_state)
 
         while node is not None:
             node.visits += 1
 
-            if result == "B":
-                node.wins += 1
+            node.wins += reward
 
             node = node.parent
 
-    best_child = max(root.children, key=lambda c: c.visits)
+    if not root.children:
+        return random.choice(root.untried_actions)
+
+    max_visits = max(child.visits for child in root.children)
+    candidates = [child for child in root.children if child.visits == max_visits]
+    best_child = max(candidates, key=lambda c: c.wins / c.visits)
     return best_child.action
 
 
