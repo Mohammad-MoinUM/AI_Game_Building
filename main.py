@@ -5,7 +5,7 @@
 # Shows result clearly at the bottom when game ends
 # ============================================================
 
-import pygame
+import pygame  # type: ignore[reportMissingImports]
 
 from settings import (
     TITLE,

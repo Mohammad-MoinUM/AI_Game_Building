@@ -441,7 +441,6 @@ def play_one_ai_turn(state):
         return
 
     apply_action(state, action)
-    update_queen_control(state)
     check_game_over(state)
 
     if not state.game_over:
